@@ -1,93 +1,93 @@
-[![Open in Visual Studio Code](https://classroom.github.com/assets/open-in-vscode-c66648af7eb3fe8bc4f294546bfd86ef473780cde1dea487d3c4ff354943c9ae.svg)](https://classroom.github.com/online_ide?assignment_repo_id=7709160&assignment_repo_type=AssignmentRepo)
-STM8 startovací toolchain
-==============================
+# PROJEKT
+## STM8
+Startovací strom zdrojových kódů pro výuku mikroprocesorové techniky s kitem
+[NUCLEO-8S208RB](https://www.st.com/en/evaluation-tools/nucleo-8s208rb.html).
+Strom je určen pro překladač [SDCC](http://sdcc.sourceforge.net/). Standardní
+knihovnu pro práci s periferiemi 
+[SPL](https://www.st.com/content/st_com/en/products/embedded-software/mcu-mpu-embedded-software/stm8-embedded-software/stsw-stm8069.html)
+je třeba (z licenčních důvodů) stáhnou zvlášť ze stránek výrobce a použít
+[patch](https://github.com/gicking/STM8-SPL_SDCC_patch).
 
-* Toto je Startovací strom zdrojových kódů pro výuku mikroprocesorové techniky s kitem
-  [NUCLEO-8S208RB](https://www.st.com/en/evaluation-tools/nucleo-8s208rb.html).
-* Strom je určen pro překladač [SDCC](http://sdcc.sourceforge.net/) nebo 
-  [SDCC-gas](https://github.com/XaviDCR92/sdcc-gas).
-* Standardní knihovnu pro práci s periferiemi 
-  [SPL](https://www.st.com/content/st_com/en/products/embedded-software/mcu-mpu-embedded-software/stm8-embedded-software/stsw-stm8069.html)
-  je třeba (z licenčních důvodů) stáhnou zvlášť ze stránek výrobce a použít
-  [patch](https://github.com/gicking/STM8-SPL_SDCC_patch).
-* Konkurence a inspirace: <https://gitlab.com/wykys/stm8-tools>
+## Popis:
+Projekt představuje indikaci stavu baterie.
+Skládá se z několika periferií: rotační n-kodér, NeoPixel modul s 8 RGB LED WS2812, LCD displej HD44780.
+Všechny tyto periferie jsou drátově propojeny s STM8 kitem na nepájivém poli.
+K napájení nám stačí USB / micro-USB kabel, který napájí STM8 kit napětím 5V. Všechny ostatní periferie budou napájeny přímo z kitu. 
+Kód využívá tlačítka přímo na kitu (USER, RESET), ale je možné použít i externě zapojená tlačítka. 
 
-Tři Makefile
----------------
-
-K dispozici jsou celkem tři Makefile v adresáři `.make`. Na začátku si musíte
-jeden z nich vybrat:
-
-```bash
-make sdcc       # nebo
-make sdccrm     # nebo
-make sdcc-gas   # nebo
+## Součástky:
+ ### rotační n-kodér 
+- Udává aktuální stav. Při rotaci bude nabývat hodnot 0-100. 
+### LED modul WS2812 
+- Modul obsahuje 8 LED diod. Programujeme je pomocí dátového výstupu MOSI. Pomocí 3 bitů na každé ledce nastavujeme barvu a jas.
+- Modul vizuálně indikuje stav baterie jak barvou, tak počtem rozvícených diod.
+### LCD displej HD44780 
+- K tomuto displeji je přímo knihovna (stm8_hd44780.h, stm8_hd44780.c). Jas displeje je regulovaný pomocí potenciometru 5kΩ, který je připojený na nepájivém poli. 
+    #### Zapojení:
+    * K STM8 připojíme datové piny D4-D7. Piny D0-D3 necháme nezapojené.
+    *  Dále k STM8 připojíme vstupy RS, RW, E.
+    * Piny zřejmě musíme zapojit přesně tak, jak jsou zapojeny v tomto projektu. Při jiném zapojení mi displej nefungoval.
+    * Zapojíme pyny pro nápájení na VDD na +5V a VDD na GND.
+    * Společnou anodu (A) zapojíme také na +5V a společnou katodu (K) přes ochranný rezistor (použitý 560Ω) na GND.
+    * Pin V0 slouží pro podsvícení displeje. Tento jas regulujeme pomocí potenciometru, jehož oba konce jsou zapojeny na napájecí svorky a jezdec je připojený na pin V0 (viz. schéma).
+       
 ```
+        #define LCD_RS_PORT GPIOF
+        #define LCD_RW_PORT GPIOF
+        #define LCD_E_PORT GPIOF
+        #define LCD_D4_PORT GPIOG
+        #define LCD_D5_PORT GPIOG
+        #define LCD_D6_PORT GPIOG
+        #define LCD_D7_PORT GPIOG
 
-Potom můžete mezi nimi přepínat:
+        #define LCD_RS_PIN GPIO_PIN_7
+        #define LCD_RW_PIN GPIO_PIN_6
+        #define LCD_E_PIN GPIO_PIN_5
+        #define LCD_D4_PIN GPIO_PIN_0
+        #define LCD_D5_PIN GPIO_PIN_1
+        #define LCD_D6_PIN GPIO_PIN_2
+        #define LCD_D7_PIN GPIO_PIN_3
+```
+### Tlačítko USER 
+- je zabudované na kitu s STM8. Při stisku se hodnota stavu baterie skokově sníží o 10%.
 
-    make switch-sdcc
-    make switch-sdccrm
-    make switch-sdcc-gas
+## Popis funkce:
+* Po startu se výchozí hodnota nastaví na 100. Tato hodnota je ukázána na LCD displeji jako 100%.
+* Na LED modulu se rozvítí všech 8 diod zelenou barvou.
+* Na výběr máme 3 možnosti interakce:
+    1. Pomocí rotačního enkodéru můžeme měnit hodnotu 0-100.
+    2. Stiskem tlačítka USER, které sníží hodnotu o 10%, ale maximálně na hodnotu 0.
+    3. Při stisku tlačítka enkodéru se spustí časovač, který každých 200 milisekund odebere z hodnoty 1%. 
+* Podle snížené hodnoty se postupně shasínají LED diody  (každých 13% 1 LED dioda), mění se barva (od 50%-15% oranžová, 15%-1% červená).
+* Hodnota na displeji se mění na danou hodnotu.
+* Při snížení hodnoty na 0 budou všechny LED diody zhasnuté. 
+* Při stisku tlačítka USER, když hodnota je 0, se rozbliká jedna červená dioda a po chvíli zase zhasne, zároveň se na displeji zobrazí text "BATTERY IS DEAD".
+* Pokud je aktivovaný časovač pomocí n-kodéru, můžeme ho zastavit dalším stisknutím.
+* Při stisku tlačítka enkodéru, když hodnota je 0%, se na displeji objeví na 1,5s nápis "FULL BATTERY" a hodnota se resetuje na 100%.
 
-Přepnutí jen znamená, že se udělá symlink do root-adresáře projektu. Na divných
-systémech, které symlinky neumí (například Windows) se natvrdo kopíruje, takže
-tato operace může být ztrátová. Na normálních systémech (asi všechny, kromě
-Windows) je tato operace bezztrátová.
+## Blokové schéma:
+![Schéma](docs/schematic.png)
 
+## Schéma:
+![Schéma](docs/Block_scheme.svg)
 
-### Který Makefile vybrat?
+## Vývojový diagram:
+![Vývojový diagram](docs/Diagram.svg)
 
-Detailní popis najdete na <https://chytrosti.marrek.cz/stm8oss.html>.
+## Zhodnocení:
+* Sestavený projekt simuluje stav baterie s nastavením hodnoty. Používá periferie jako LCD displej, LED modul a enkodér. Využívá funkce **milis** a **delay**.
+* **Výhody:** 
+    * Všechny známé chyby, co by mohly nastat jsou opravené. 
+    * Program má mnoho možností, jak pracovat s hlavním parametrem. 
+    * Podmínky programu jsou psány dostatečně jednoduše a relativně jsou lehce pochopitelné. 
+* **Nevýhody:**
+    * Snažil jsem se přidat více možností, jak pracovat s parametry, jako například ovládání podržením tlačítka, ale i přes snahu najít informace a po mnoho pokusech se mi nepodařilo tyto funkce zavést, aniž by to fungovalo s ostatními podmínkami kódu.
+    * Kód je psaný velice jednoduše a některé části by se daly určitě zkrátit a použít složitější funkce.
+* Kód je dostatečně dlouhý a propracovaný, obsahuje dost periferií, avšak mohly by být více rozvinuté a mít více funkcí v kódu.
+* Během programování jsem daleko lépe pochopil funkčnost některých částí kódu. Bohužel jsem se musel vypořádat i s takovými částmi, které jsem nedokázach pochopit. Naučil jsem se používat periferie enkodér a LED modul WS2812. Kdybych měl více času se zaměřit na programování s STM8 určitě bych dokázal naprogramovat zajímavé programy, ale potřeboval bych mít nějakou inspirac, či zadání funkce programu. Problém by byl v tom, že nedokážu naprogramovat složitější funkce a špatně je chápu. Další demotivací je pro mě, že programování v jazyce C ke svému účelu nevyužiji, využívám ho jen pro předmět mikroprocesorová technika. Na programování pro vlastní účely bych využil, pokud je to možné, jazyk Python.
 
-#### SDCC
-
-Z hlediska STM8 má [SDCC](http://sdcc.sourceforge.net/) jednu zásadní nevýhodu:
-nedokáže odstranit mrtvý nepoužívaný kód. To může zapříčinit velké binární soubory plné
-nepoužívaného kódu. Pokud nepoužíváte knihovny 2. a 3. stran asi vám to nevadí.
-
-#### sdccrm
-
-[sdccrm](https://github.com/XaviDCR92/sdccrm) je nástroj pro optimalizaci
-mrtvého kódu vytvořeného SDCC, který odstraňuje nepoužívané funkce. Kód se
-nejprve zkompiluje do assembleru klasickým SDCC, poté se pomocí sdccrm vymaže
-kód, který se nepoužívá a celý proces se dokončí a kód se převede z assembleru
-do strojového kódu. Z logiky věci toto řešení vylučuje použití debugeru.
-
-Dále je nutné ručně zadat funkce, které nechcete optimalizovat – tedy
-vyhodit. Proto je třeba sledovat chybová hlášení a název chybějící funkce zadat
-do souboru `.make/exclude_reference` uvnitř projektového adresáře.
-
-#### SDCC-gas
-
-[SDCC-gas](https://github.com/XaviDCR92/sdcc-gas) vzniklo, aby vyřešilo problém
-optimalizace mrtvého kódu přidáním podpory [GNU
-Assembleru](https://cs.wikipedia.org/wiki/GNU_Assembler) tedy *gas* do SDCC
-3.9.0. [gas](https://codedocs.org/what-is/gnu-assembler) je výhodou i nevýhodou
-tohoto řešení. Na jednu stranu to znamená, že můžeme používat klasické nástroje
-z [GNU binutils](https://cs.wikipedia.org/wiki/GNU_binutils), na druhou stranu
-to znamená, že nelze použít ty části sdcc-libraries, které jsou napsané v STM8
-assembleru a je nutné použít méně optimální kód napsaný v C nebo STM8 assembler
-přepsat do GNU assembleru.
-
-
-Použití
---------------
-
-* `make spl` -- stáhne a nachystá knihovny
-* `make` -- provede kompilaci
-* `make flash` -- nahraje program do chipu
-* `make clean` -- smaže všechno, co nakompiloval
-* `make rebuild` -- smaže vše a znovu zkompiluje
-* `make openocd` -- pustí `openocd` pro debug
-* `make debug` -- spustí STM8-gdb
+# Dokumenty:
+[here](docs/)
 
 
-Závislosti
----------------
-
-* GNU Make, GNU Bash, 
-* [SDCC](http://sdcc.sourceforge.net/)
-* [SDCC-gas](https://github.com/XaviDCR92/sdcc-gas)
-* [OpenOCD](https://openocd.org/)
-* [STM8 binutils](https://stm8-binutils-gdb.sourceforge.io) (`stm8-gdb`, `stm8-ln`)
+autor: Tomáš Smida
