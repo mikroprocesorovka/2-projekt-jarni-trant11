@@ -47,7 +47,7 @@ Dají se nastavovat různé parametry přenosu (rychlost, PORT, VoIP).
 Převodník, převádějící analogový signál na digitální. 
 
 ## Schéma:
-![Schéma](docs/scheme.svg)
+![Schéma](docs/scheme.png)
 
 ## Vývojový diagram:
 ![Vývojový diagram](docs/Diagram.svg)
